@@ -1,0 +1,78 @@
+
+//for multiple destinations
+{
+    'bbox': [
+        121.054174, 14.544127, 121.068441, 14.584549
+    ],
+    'geometry': {
+        'coordinates': [
+            [121.056882, 14.584524], 
+            [121.056625, 14.584532], 
+            [121.056418, 14.584538], 
+            [121.056009, 14.584549], 
+            ...
+        ], 
+        'type': 'LineString'
+    }, 
+    'properties': {
+        'destinations': [
+            {'lat': 14.544145, 'lon': 121.056617, 'payload': 4}, 
+            {'lat': 14.557855, 'lon': 121.066139, 'payload': 3}
+        ], 
+        'segments': [
+            {
+                'distance': 6983.0, 
+                'duration': 898.1, 
+                'steps': [
+                    {'distance': 94.0, 'duration': 13.5, 'instruction': 'Head west on Doña Julia Vargas Avenue', 'name': 'Doña Julia Vargas Avenue', 'type': 11, 'way_points': [0, 3]}, 
+                    {'distance': 1200.8, 'duration': 209.0, 'instruction': 'Keep left', 'name': '-', 'type': 12, 'way_points': [3, 33]}, 
+                    {'distance': 1056.3, 'duration': 132.9, 'instruction': 'Turn left onto Shaw Boulevard, 141', 'name': 'Shaw Boulevard, 141', 'type': 0, 'way_points': [33, 63]}, 
+                    ...
+                ]
+            },
+            ...
+        ],
+        'source': {'lat': 14.58463, 'lon': 121.056885}, 
+        'summary': {
+            'distance': 25791.9, 
+            'duration': 3177.2999999999997, 
+            'trips': 2
+        }
+    }, 
+    'type': 'Feature'
+}
+
+
+//for point-to-point routing
+{
+    'bbox': [
+        121.054174, 14.544127, 121.068441, 14.584549
+        ], 
+    'geometry': {
+        'coordinates': [
+            [121.056882, 14.584524], 
+            [121.056625, 14.584532], 
+            [121.056418, 14.584538],
+            ...
+        ], 
+        'type': 'LineString'
+    }, 
+    'properties': {
+        'segments': [
+            {
+                'distance': 6983.0, 
+                'duration': 898.1, 
+                'steps': [
+                    {'distance': 94.0, 'duration': 13.5, 'instruction': 'Head west on Doña Julia Vargas Avenue', 'name': 'Doña Julia Vargas Avenue', 'type': 11, 'way_points': [0, 3]}, 
+                    {'distance': 1200.8, 'duration': 209.0, 'instruction': 'Keep left', 'name': '-', 'type': 12, 'way_points': [3, 33]}, 
+                    {'distance': 1056.3, 'duration': 132.9, 'instruction': 'Turn left onto Shaw Boulevard, 141', 'name': 'Shaw Boulevard, 141', 'type': 0, 'way_points': [33, 63]}, 
+                    ...
+                ], 
+        'summary': {
+            'distance': 6983.0, 
+            'duration': 898.1
+        }, 
+        'way_points': [0, 190]
+    }, 
+    'type': 'Feature'
+}
