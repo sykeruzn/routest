@@ -203,13 +203,34 @@ def _annotate_common_props(feature: dict, driver_details: dict, vehicle_type: st
 
 # ---------- SSE helpers ----------
 
+RUNNING_IN_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID"))
+DEV_BASE = (os.getenv("DEV_API_BASE") or "http://127.0.0.1:5000").rstrip("/")
+PROD_BASE = (os.getenv("API_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+
+API_BASE = (PROD_BASE if (RUNNING_IN_RENDER and PROD_BASE) else DEV_BASE)
+UPDATE_ENDPOINT = f"{API_BASE}/api/update_tracker"
+
+def _post_update(payload, retries=3, backoff=0.4):
+    """
+    Post tracker updates with tiny exponential backoff.
+    Keeps logs quiet unless something is actually wrong.
+    """
+    for i in range(retries):
+        try:
+            r = requests.post(UPDATE_ENDPOINT, json=payload, timeout=10)
+            if r.ok:
+                return True
+            print(f"update_tracker non-200: {r.status_code} {r.text[:160]}")
+        except Exception as e:
+            print(f"update_tracker error: {e}")
+        time.sleep(backoff * (2 ** i))
+    return False
+
 def simulate_route(data):
     PICKUP_TIME = dt.datetime.now()
 
-    api_url = 'http://127.0.0.1:5000/api/update_tracker'
     route_points = list(data['route_details']['geometry']['coordinates'])
     destinations = data['route_details']['properties']['destinations']
-    
 
     while route_points:
         url_data = {
@@ -224,13 +245,10 @@ def simulate_route(data):
             "pickup_time": PICKUP_TIME.isoformat(),
         }
         route_points.pop(0)
-        try:
-            response = requests.post(api_url, json=url_data, timeout=10)
-            print(f"Sent: (points left={len(route_points)}) | Response: {response.status_code}")
-        except Exception as error:
-            print(f"Error posting to API: {error}")
+        ok = _post_update(url_data)
+        if ok:
+            print(f"Sent to {UPDATE_ENDPOINT} (points left={len(route_points)})")
         time.sleep(random.uniform(2.0, 5.0))
-
 
 def format_sse_data(data):
     # FIX: use dt.datetime.fromisoformat (we import datetime as dt)
