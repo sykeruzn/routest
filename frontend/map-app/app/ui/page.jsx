@@ -28,6 +28,10 @@ export default function Page() {
   const [geo, setGeo] = useState(null); // {lat,lng}
   const [errorMsg, setErrorMsg] = useState("");
 
+  // ML toggle + driver age
+  const [engine, setEngine] = useState("default"); // "default" | "ml"
+  const [driverAge, setDriverAge] = useState(30);
+
   // Routing spinner + toast
   const [routing, setRouting] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'error'|'info', message: string }
@@ -400,20 +404,33 @@ export default function Page() {
            vehicleId,
            vehicleType,
            originId,
-           destIds
+           destIds,
+           engine,
+           driverAge
          );
         lastFeatureRef.current = feature;
         showOptimizedOrderBadges(feature);
 
-        // analytics
-        const sum = feature?.properties?.summary || {};
-        const km = (sum.distance || 0) / 1000;
-        const min = (sum.duration || 0) / 60;
+        // analytics (prefer ML if available)
+        const props = feature?.properties || {};
+        const sum   = props.summary || {};
+        const km    = (sum.distance || 0) / 1000;
+
+        const mlMin = props.eta_minutes_ml;             // minutes (number)
+        const mlIso = props.eta_completion_time_ml;     // ISO string
+
         setDistanceKm(km);
-        setDurationMin(min);
-        setEta(new Date(Date.now() + (sum.duration || 0) * 1000));
+        let minutes;
+        if (typeof mlMin === "number") {
+          minutes = mlMin;
+          setEta(mlIso ? new Date(mlIso) : new Date(Date.now() + mlMin * 60 * 1000));
+        } else {
+          minutes = (sum.duration || 0) / 60;
+          setEta(new Date(Date.now() + (sum.duration || 0) * 1000));
+        }
+        setDurationMin(minutes);
         setLastUpdated(Date.now());
-        setOptimized(Boolean(feature?.properties?.optimized_order?.length));
+        setOptimized((feature?.properties?.optimized_order?.length || 0) > 1);
         setSaved(Boolean(feature?.properties?.request_id));
 
         // steps
@@ -426,7 +443,7 @@ export default function Page() {
             : locations.find((l) => l.id === originId)?.name || "Origin";
         const firstDest = destRows[0]?.name || "Destination";
         const label = destRows.length === 1 ? firstDest : `${firstDest} + ${destRows.length - 1} more`;
-        setRouteSummary({ originName: oName, destName: label, km, min });
+        setRouteSummary({ originName: oName, destName: label, km, min: minutes });
 
         // draw polyline
         const coords = feature?.geometry?.coordinates || []; // [lon, lat]
@@ -465,9 +482,9 @@ export default function Page() {
     setOptimized(false);
 
     const km = route.distance / 1000;
-    const min = route.duration / 60;
+    const minutes = route.duration / 60;
     setDistanceKm(km);
-    setDurationMin(min);
+    setDurationMin(minutes);
     setEta(new Date(Date.now() + route.duration * 1000));
     setLastUpdated(Date.now());
 
@@ -490,7 +507,7 @@ export default function Page() {
         : locations.find((l) => l.id === originId)?.name || "Origin";
     const firstDest = destRows[0]?.name || "Destination";
     const label = destRows.length === 1 ? firstDest : `${firstDest} + ${destRows.length - 1} more`;
-    setRouteSummary({ originName: oName, destName: label, km, min });
+    setRouteSummary({ originName: oName, destName: label, km, min: minutes });
 
     const coords = route.geometry?.coordinates || [];
     const latlngs = coords.map(([lng, lat]) => [lat, lng]);
@@ -919,7 +936,49 @@ export default function Page() {
                   ))}
                 </select>
               </div>
+                {/* Prediction Engine */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Prediction Engine
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEngine("default")}
+                      aria-pressed={engine === "default"}
+                      className={`px-3 py-2 rounded-xl border shadow-sm ${
+                        engine === "default" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      Default (Routing)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEngine("ml")}
+                      aria-pressed={engine === "ml"}
+                      className={`px-3 py-2 rounded-xl border shadow-sm ${
+                        engine === "ml" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      ML (XGBoost ETA)
+                    </button>
+                  </div>
 
+                  {/* Driver Age */}
+                  <div className="mt-3">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Driver Age
+                    </label>
+                    <input
+                      type="number"
+                      min={16}
+                      max={85}
+                      value={driverAge}
+                      onChange={(e) => setDriverAge(parseInt(e.target.value || "30", 10))}
+                      className="w-32 px-3 py-2 rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                </div>
             {/* Filters */}
             <div>
               <div className="text-sm font-semibold text-slate-700 mb-2">Filters</div>
@@ -1112,6 +1171,12 @@ export default function Page() {
                       >
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Optimized
+                      </span>
+                    )}
+                    {engine === "ml" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs font-medium">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        ML ETA
                       </span>
                     )}
                     <span className="text-xs text-slate-500">Summary &amp; Steps</span>
@@ -1510,7 +1575,16 @@ function showOptimizedOrderBadges(feature) {
   });
 }
 
-async function callBackendOptimizeRoute(originCoords, destCoordsList, vehicleId, vehicleType, originIdValue, destIdsValue) {
+async function callBackendOptimizeRoute(
+  originCoords,
+  destCoordsList,
+  vehicleId,
+  vehicleType,
+  originIdValue,
+  destIdsValue,
+  engine,         // NEW
+  driverAge       // NEW
+) {
   const payload = {
     source_point: toLonLat(originCoords),
     destination_points: destCoordsList.map(c => ({ ...toLonLat(c), payload: 1 })),
@@ -1519,12 +1593,16 @@ async function callBackendOptimizeRoute(originCoords, destCoordsList, vehicleId,
       vehicle_type: vehicleType || "car",
       vehicle_capacity: 9999,
       maximum_distance: 100000,
+      driver_age: Number.isFinite(+driverAge) ? +driverAge : 30, // NEW
     },
     meta: {
       origin_id: originIdValue === "__current_location__" ? null : originIdValue,
       destination_ids: destIdsValue,
       vehicle_id: vehicleId || null
-    }
+    },
+    // ML toggle + optional context (backend reads when use_ml_eta=true)
+    use_ml_eta: engine === "ml",                           // NEW
+    context: engine === "ml" ? { weather: "Sunny", traffic: "Medium" } : undefined, // NEW
   };
 
   const res = await fetch(`${ROUTE_API_BASE}/optimize_route`, {

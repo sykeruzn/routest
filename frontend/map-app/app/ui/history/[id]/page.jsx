@@ -24,6 +24,15 @@ export default function HistoryDetail({ params }) {
     const [km, setKm] = useState(null);
     const [min, setMin] = useState(null);
 
+
+    const mlMinutesFromResult = (result) => {
+    const v = result?.eta_minutes_ml ?? result?.properties?.eta_minutes_ml;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+    };
+    const usedMl = (req, result) =>
+    Boolean(mlMinutesFromResult(result) != null || req?.use_ml_eta === true);
+
     // Leaflet bits
     const mapRef = useRef(null);
     const routeLayerRef = useRef(null);
@@ -35,6 +44,8 @@ export default function HistoryDetail({ params }) {
     const ord = data?.result?.optimized_order;
     return Array.isArray(ord) && ord.length === ids.length ? ord.map(i => ids[i]) : ids;
     }, [data]);
+
+    
 
     // load history detail
     useEffect(() => {
@@ -79,7 +90,9 @@ export default function HistoryDetail({ params }) {
         const td = Number(data.result.total_distance);
         const tt = Number(data.result.total_duration);
         if (!Number.isNaN(td)) setKm(td / 1000);
-        if (!Number.isNaN(tt)) setMin(tt / 60);
+        const ml = mlMinutesFromResult(data.result);
+        if (ml != null) setMin(ml);
+        else if (!Number.isNaN(tt)) setMin(tt / 60);
     }, [data]);
 
     // create a tiny map once the container exists
@@ -148,7 +161,9 @@ export default function HistoryDetail({ params }) {
         const td = Number(data?.result?.total_distance);
         const tt = Number(data?.result?.total_duration);
         if (!Number.isNaN(td)) setKm(td / 1000);
-        if (!Number.isNaN(tt)) setMin(tt / 60);
+        const ml = mlMinutesFromResult(data?.result);
+        if (ml != null) setMin(ml);
+        else if (!Number.isNaN(tt)) setMin(tt / 60);
         return;
         }
 
@@ -273,6 +288,16 @@ export default function HistoryDetail({ params }) {
                                     </span>
                                 ) : (
                                     <span className="text-slate-400 text-xs">—</span>
+                                )}
+                                </div>
+                                <div>
+                                <Label>Engine</Label>
+                                {usedMl(data?.request, data?.result) ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs">
+                                    ML ETA
+                                    </span>
+                                ) : (
+                                    <span className="text-slate-400 text-xs">Default</span>
                                 )}
                                 </div>
                                 <div>
